@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TGC Rongai Campus Tracker</title>
+<meta name="description" content="Soul winning & plug-in tracker for The Go Church, Rongai Campus.">
+<link id="faviconIcon" rel="icon" type="image/png" href="assets/favicon-32.png">
+<link id="faviconApple" rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div class="app-shell">
+
+  <header class="topbar">
+    <div class="brand-row">
+      <div class="brand">
+        <div class="brand-mark-badge">
+          <img id="brandLogoImg" class="brand-mark-img" src="assets/logo-default.png" alt="Church logo">
+        </div>
+        <div class="brand-text">
+          <h1>TGC Rongai Campus Tracker</h1>
+          <p>The Go Church &middot; Soul Winning &amp; Plug-In Platform</p>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button id="undoBtn" class="btn btn-yellow btn-sm" onclick="performUndo()" style="display:none;" title="Revert the last edit or delete">↺ Undo last change</button>
+        <div class="tagline">Reach. Follow up. Plug in.</div>
+      </div>
+    </div>
+
+    <nav class="tabs">
+      <button class="tab-btn active" data-view="view-dashboard">Follow-Up Radar</button>
+      <button class="tab-btn" data-view="view-souls">Soul Winning Records</button>
+      <button class="tab-btn" data-view="view-members-report">Church Members</button>
+      <button class="tab-btn" data-view="view-reports">Dashboard</button>
+      <button class="tab-btn" data-view="view-archive">Archive</button>
+      <button class="tab-btn" data-view="view-admin">Members &amp; Settings</button>
+    </nav>
+  </header>
+
+  <main class="content">
+    <section id="view-dashboard" class="view active"></section>
+    <section id="view-souls" class="view"></section>
+    <section id="view-members-report" class="view"></section>
+    <section id="view-reports" class="view"></section>
+    <section id="view-archive" class="view"></section>
+    <section id="view-admin" class="view"></section>
+  </main>
+
+  <footer class="app-footer">
+    The Go Church &middot; Rongai Campus — built to make sure no soul won is a soul forgotten.
+  </footer>
+</div>
+
+<div class="overlay" id="modalOverlay">
+  <div id="modalRoot"></div>
+</div>
+
+<script src="vendor/sqljs/sql-wasm.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/cloud-sync.js"></script>
+<script src="js/store.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/render.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/archive.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
