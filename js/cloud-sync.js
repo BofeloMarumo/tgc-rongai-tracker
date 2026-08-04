@@ -61,21 +61,40 @@ async function supabaseDeleteIds(table, ids, pkColumn) {
 // confirmed full-replace actions (Reset to demo data, Import, and the
 // manual "Push local data to cloud now" button) — NOT used for ordinary
 // saves, since it would erase anything remote not present locally.
+// Wipe every row in `table` and re-insert `rows` — but SAFELY: the insert
+// happens FIRST, and only rows no longer present locally are deleted
+// afterward, and only once the insert has succeeded. This ordering matters:
+// the previous version deleted first, so if the insert failed for any
+// reason (e.g. a schema mismatch from a migration not yet applied), the
+// table was left permanently empty with nothing to roll back to. Now a
+// failed write just fails loudly — it can never wipe existing data.
 async function supabaseReplaceAll(table, rows, pkColumn) {
-  const delRes = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${pkColumn}=not.is.null`, {
-    method: "DELETE",
-    headers: supabaseHeaders(),
-  });
-  if (!delRes.ok) throw new Error(`Supabase DELETE ${table} failed: ${delRes.status} ${await delRes.text()}`);
+  if (rows.length) {
+    const insRes = await fetch(`${SUPABASE_URL}/rest/v1/${table}?on_conflict=${pkColumn}`, {
+      method: "POST",
+      headers: supabaseHeaders({ "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" }),
+      body: JSON.stringify(rows),
+    });
+    if (!insRes.ok) throw new Error(`Supabase INSERT ${table} failed: ${insRes.status} ${await insRes.text()}`);
 
-  if (!rows.length) return;
-
-  const insRes = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-    method: "POST",
-    headers: supabaseHeaders({ "Content-Type": "application/json", Prefer: "return=minimal" }),
-    body: JSON.stringify(rows),
-  });
-  if (!insRes.ok) throw new Error(`Supabase INSERT ${table} failed: ${insRes.status} ${await insRes.text()}`);
+    // Now that the current rows are safely written, remove anything that's
+    // no longer part of the local dataset.
+    const ids = rows.map((r) => r[pkColumn]);
+    const list = ids.map((id) => encodeURIComponent(id)).join(",");
+    const delRes = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${pkColumn}=not.in.(${list})`, {
+      method: "DELETE",
+      headers: supabaseHeaders(),
+    });
+    if (!delRes.ok) throw new Error(`Supabase DELETE ${table} failed: ${delRes.status} ${await delRes.text()}`);
+  } else {
+    // Genuinely no local rows at all (e.g. a from-scratch reset) — only
+    // then is a full wipe actually correct.
+    const delRes = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${pkColumn}=not.is.null`, {
+      method: "DELETE",
+      headers: supabaseHeaders(),
+    });
+    if (!delRes.ok) throw new Error(`Supabase DELETE ${table} failed: ${delRes.status} ${await delRes.text()}`);
+  }
 }
 
 // ---------------- Load: pull everything from Supabase, map to our JS shape ----------------
