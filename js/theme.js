@@ -94,6 +94,8 @@ function applyBranding(settings) {
   const customLogo = settings && settings.logoDataUrl;
   const img = document.getElementById("brandLogoImg");
   if (img) img.src = customLogo || DEFAULT_LOGO_PATH;
+  const loginImg = document.getElementById("loginLogoImg");
+  if (loginImg) loginImg.src = customLogo || DEFAULT_LOGO_PATH;
 
   const iconEl = document.getElementById("faviconIcon");
   const appleEl = document.getElementById("faviconApple");

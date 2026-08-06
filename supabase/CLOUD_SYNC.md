@@ -8,9 +8,21 @@ The tracker now syncs to a Supabase project so changes made on one device show u
 2. Paste the entire contents of [`supabase/schema.sql`](../supabase/schema.sql) and run it. This creates the five tables (`members`, `hotspots`, `soul_records`, `church_members`, `settings`) and enables Row Level Security with policies that allow the app's anon key full read/write access.
 3. That's it — `js/cloud-sync.js` already points at the project URL and key you gave us. No further configuration needed.
 
-### Already set this up before? Run the Archive migration
+### Already set this up before? Run the Archive migration and the Users migration
 
-If your Supabase project already existed before the Archive feature was added, its tables don't have the new `archived` / `archive_reason_category` / `archive_reason_text` / `archived_at` columns yet — `supabase/schema.sql`'s `create table if not exists` won't add columns to a table that already exists. Run **[`supabase/migrations/002_archive_columns.sql`](migrations/002_archive_columns.sql)** once in the SQL Editor to add them (safe to run alongside existing data — it only adds columns, nothing is deleted). Brand-new projects can skip this; running the full `schema.sql` already includes them.
+If your Supabase project already existed before these features were added, run these once in the SQL Editor (safe alongside existing data — both only add things, nothing is deleted):
+- **[`supabase/migrations/002_archive_columns.sql`](migrations/002_archive_columns.sql)** — adds `archived`/`archive_reason_category`/`archive_reason_text`/`archived_at` columns.
+- **[`supabase/migrations/003_users.sql`](migrations/003_users.sql)** — adds the `users` table (login/roles).
+
+Brand-new projects can skip both; running the full `schema.sql` already includes everything.
+
+### ⚠️ Data loss incident (fixed)
+
+If this project's cloud sync wiped existing data at some point, here's almost certainly why, and it's now fixed: the "full replace" sync path (used by Reset to demo data, Import, and the manual "Push" button) used to **delete every row first, then insert the new ones**. If that insert ever failed for any reason — most likely a schema mismatch, e.g. the app trying to write `archived`/`archive_reason_category` columns before migration 002 had been run — the delete had already gone through, and the table was left permanently empty with nothing to roll back to.
+
+This is fixed: the insert now happens **first**, and only rows no longer present locally are deleted **after** confirming the insert succeeded. A failed sync can no longer wipe existing data — it just fails loudly and leaves things as they were. Verified with a test that specifically simulates a rejected insert and confirms existing rows survive.
+
+**If you were affected:** unfortunately, since the delete-then-insert bug ran the delete first, there's no automatic recovery — check whether you have an exported `.sqlite` or `.json` backup from Members & Settings → Database from before the incident, since that's the most likely place to recover from.
 
 ## How it works
 
@@ -23,12 +35,12 @@ If your Supabase project already existed before the Archive feature was added, i
 
 ## ⚠️ Security — please read
 
-This app talks to Supabase using the **public anon key**, with no login. The Row Level Security policies in `supabase/schema.sql` grant that key **full read and write access to every row**. That means:
+This app talks to Supabase using the **public anon key**. The Row Level Security policies in `supabase/schema.sql` grant that key **full read and write access to every row, in every table — including `users`**. That means:
 
-- Anyone who has your Supabase project URL and this key can read **and change or delete** all of this data — including the names, phone numbers, and personal notes of people who've been reached in outreach.
+- Anyone who has your Supabase project URL and this key can read **and change or delete** all of this data — including the names, phone numbers, and personal notes of people who've been reached in outreach, and (since the login/roles feature) the `users` table itself.
 - The anon key is necessarily visible in your app's client-side JavaScript (`js/cloud-sync.js`) — that's normal for this kind of setup, but it means the key itself provides no real protection once the code is public (e.g. published on GitHub Pages, per this project's design).
 
-**If this campus's data is sensitive enough to need real protection, the next step is Supabase Auth:** require team members to sign in (email/password or a magic link), and change the RLS policies in `supabase/schema.sql` from `using (true)` to something like `using (auth.role() = 'authenticated')`. That's a genuine follow-up project, not a small tweak — happy to build it if you want it, just flagging that the current setup trades security for simplicity, matching what was asked for ("no login, works across devices").
+**The login screen (Super Admin / Branch Admin / Hotspot Leader) is a UI-level access gate, not a substitute for this.** It stops someone from casually opening the app and reaching Settings — and gives every action a named owner — but it does **not** stop someone who calls the Supabase REST API directly with the anon key, bypassing the login screen entirely. If a deliberate bad actor with API access is the real concern (as opposed to casual/accidental misuse through the app itself), the actual fix is **Supabase Auth**: require real sign-in, and change the RLS policies from `using (true)` to something like `using (auth.role() = 'authenticated')`. That's a genuine follow-up project, not a small tweak — happy to build it if the risk warrants it.
 
 ## What wasn't possible to verify here
 

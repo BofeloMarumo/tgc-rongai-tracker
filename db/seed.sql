@@ -138,4 +138,11 @@ INSERT INTO settings (key, value) VALUES
   ('noteWarnDays',   '3'),
   ('noteDangerDays', '7'),
   ('weeklyHotspotTarget', '10'),
-  ('previousSoulsWon', '0');
+  ('previousSoulsWonByYear', '{}'),
+  ('colorPreset', 'blue_purple'),
+  ('archiveReasonCategories', '["Relocated","Assigned to Another Branch/Pastor","Lost Contact","Personal Request","Other"]');
+
+-- Default Super Admin — password is "tgcrongai2026" (SHA-256 hashed below).
+-- Change this password after first login. See docs for how login security works.
+INSERT INTO users (id, user_type, name, password_hash, created_at) VALUES
+  ('user_marumo', 'Super Admin', 'Marumo', 'a1bc7d41fd7b979f05b8a8e76716135706e98dd3b74fabf6c844e1571b58d230', '2026-01-01');

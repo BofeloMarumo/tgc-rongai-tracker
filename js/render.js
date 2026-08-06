@@ -373,6 +373,15 @@ function renderChurchMembers() {
 function renderAdmin() {
   const el = document.getElementById("view-admin");
 
+  if (typeof isSuperAdmin === "function" && !isSuperAdmin()) {
+    el.innerHTML = `
+      <div class="card">
+        <div class="empty-state"><div class="glyph">🔒</div>Members & Settings is only available to Super Admins.</div>
+      </div>
+    `;
+    return;
+  }
+
   const memberRows = Store.data.members.map((m) => `
     <tr><td>${m.name}</td><td><button class="btn btn-ghost btn-sm" onclick="openEditMemberModal('${m.id}')">Edit</button> <button class="btn btn-danger btn-sm" onclick="removeMemberRow('${m.id}')">Remove</button></td></tr>
   `).join("") || `<tr><td colspan="2"><div class="empty-state">No members yet.</div></td></tr>`;
@@ -400,7 +409,36 @@ function renderAdmin() {
       <tr><td>${year}</td><td>${count}</td><td><button class="btn btn-danger btn-sm" onclick="removePreviousSoulsWonYear('${year}')">Remove</button></td></tr>
     `).join("") || `<tr><td colspan="3"><div class="empty-state">No carried-over years added yet.</div></td></tr>`;
 
+  const me = currentUser();
+  const userRows = Store.data.users.map((u) => `
+    <tr>
+      <td>${u.name}${me && me.id === u.id ? ' <span class="badge badge-blue">You</span>' : ""}</td>
+      <td><span class="badge ${u.userType === "Super Admin" ? "badge-red" : u.userType === "Branch Admin" ? "badge-yellow" : "badge-green"}">${u.userType}</span></td>
+      <td>${formatNiceDate(u.createdAt)}</td>
+      <td>
+        <button class="btn btn-ghost btn-sm" onclick="openEditUserModal('${u.id}')">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="removeUserRow('${u.id}')">Delete</button>
+      </td>
+    </tr>
+  `).join("") || `<tr><td colspan="4"><div class="empty-state">No users yet.</div></td></tr>`;
+
   el.innerHTML = `
+    <div class="card">
+      <div class="card-head">
+        <div><h2>Users</h2><div class="sub">Only Super Admins can reach this Settings tab. Created, edited, and removed only by a Super Admin.</div></div>
+      </div>
+      <button class="btn btn-primary btn-sm" style="margin-bottom:14px;" onclick="openAddUserModal()">+ Add user</button>
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Name</th><th>User type</th><th>Created</th><th></th></tr></thead>
+          <tbody>${userRows}</tbody>
+        </table>
+      </div>
+      <p class="sub" style="margin-top:10px;">
+        ⚠️ This login screen is a UI-level access gate, not full security — it can't stop someone who calls the Supabase API directly with the project's anon key (see Cloud Sync below). It does stop casual/accidental access to Settings through the app itself, and gives every action here a named owner.
+      </p>
+    </div>
+
     <div class="card">
       <div class="card-head">
         <div><h2>Hotspot Leaders</h2><div class="sub">The current members roster — feeds every dropdown campus-wide (won by, follow-up, hotspot leader, discipler).</div></div>

@@ -148,6 +148,14 @@ Any church using this tracker can make it their own from Members & Settings → 
 - **Color scheme:** four built-in presets — **Blue & Purple** (default), **Sky & Yellow** (the original warm/energetic look), **Royal Violet**, and **Slate Monochrome** — selectable as swatches. Presets are just different values for the same CSS custom properties already used everywhere in `css/styles.css` (`--blue`, `--yellow`, `--navy`, etc.), applied at runtime via `document.documentElement.style.setProperty()` in `js/theme.js` — no separate stylesheets to maintain.
 - **Logo contrast:** the top-bar logo always sits inside a solid white rounded badge with its own shadow, independent of whichever color preset or branding is active, so it never gets lost against a bold gradient background.
 
+## 4f. Login & Roles
+
+Three user types: **Super Admin**, **Branch Admin**, **Hotspot Leader**. Only Super Admins can reach Members & Settings — the tab is hidden for everyone else, and `renderAdmin()` refuses to render its contents even if reached directly, as a defense-in-depth check. Users are managed entirely by Super Admins (Members & Settings → Users): create, edit (including changing type or password), and delete — with one rule enforced everywhere: **the last remaining Super Admin can't be deleted**, so the tracker can never be locked out.
+
+Passwords are SHA-256 hashed before being stored, so they're not sitting around as plaintext. **This is a courtesy, not real security** — see the security note in `supabase/CLOUD_SYNC.md`. Because this whole app runs on an open Supabase anon key, the login screen is a UI-level gate (stops casual/accidental access, gives every action a named owner) and cannot stop someone who calls the Supabase API directly with that key. Real protection against a deliberate bad actor requires Supabase Auth, a separate project.
+
+A default account ships and self-heals: if the `users` list is ever empty (fresh install, a project that hasn't run the users migration, or an emptied table), the app seeds one Super Admin — Name `Marumo`, Password `tgcrongai2026` — so there's always a way in. Change this password after first login.
+
 ## 4e. Archive
 
 Sometimes someone needs to come off the active dashboards without being deleted — they relocated, were handed off to another branch/pastor, went quiet, etc. **Archive** (available from a soul's or church member's card, or directly from their table row) does exactly that: it flags the record as archived and removes it from the Follow-Up Radar (souls) or Church Member Report (members), while keeping every field, note, and attendance record fully intact. It can be reversed any time via "Unarchive."

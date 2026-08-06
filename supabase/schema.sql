@@ -64,6 +64,22 @@ create table if not exists settings (
   value jsonb not null default '{}'::jsonb
 );
 
+-- Users: app-level login gate (Super Admin / Branch Admin / Hotspot
+-- Leader). Only Super Admins can access Members & Settings in the app.
+-- Passwords are a SHA-256 hash, never plaintext. IMPORTANT: because this
+-- table uses the same open anon-key policy as everything else below,
+-- this is a UI-level access gate, not real security — anyone with the
+-- anon key can still read these rows directly via the REST API. See
+-- supabase/CLOUD_SYNC.md for the honest security boundary and the
+-- Supabase Auth upgrade path if you need real protection.
+create table if not exists users (
+  id            text primary key,
+  user_type     text not null check (user_type in ('Super Admin','Branch Admin','Hotspot Leader')),
+  name          text not null,
+  password_hash text not null,
+  created_at    text not null
+);
+
 -- ============================================================
 -- Row Level Security
 --
@@ -87,9 +103,11 @@ alter table hotspots enable row level security;
 alter table soul_records enable row level security;
 alter table church_members enable row level security;
 alter table settings enable row level security;
+alter table users enable row level security;
 
 create policy "anon full access" on members for all using (true) with check (true);
 create policy "anon full access" on hotspots for all using (true) with check (true);
 create policy "anon full access" on soul_records for all using (true) with check (true);
 create policy "anon full access" on church_members for all using (true) with check (true);
 create policy "anon full access" on settings for all using (true) with check (true);
+create policy "anon full access" on users for all using (true) with check (true);

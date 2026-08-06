@@ -611,3 +611,194 @@ button:focus-visible, .tab-btn:focus-visible, input:focus-visible, select:focus-
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* ============================================================
+   Login screen
+   ============================================================ */
+.login-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.login-top {
+  flex: 1;
+  min-height: 620px;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.login-hero {
+  flex: 1 1 480px;
+  min-height: 500px;
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(circle at 30% 20%, var(--blue) 0%, transparent 55%),
+              linear-gradient(160deg, var(--navy) 0%, var(--blue-deep) 55%, var(--gold) 130%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-hero-watermark {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: min(28vw, 320px);
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.07);
+  letter-spacing: -0.02em;
+  user-select: none;
+}
+
+.login-hero-dots {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.35) 1.5px, transparent 1.5px);
+  background-size: 14px 14px;
+  border-radius: 50%;
+  opacity: 0.5;
+}
+
+.login-hero-dots-1 { top: -60px; right: -60px; }
+.login-hero-dots-2 { bottom: -80px; left: -40px; opacity: 0.3; }
+
+.login-panel {
+  flex: 1 1 420px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(120deg, #fff 60%, var(--sky) 100%);
+  padding: 40px 24px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  background: #fff;
+  border-radius: 22px;
+  box-shadow: 0 20px 60px rgba(15, 15, 40, 0.16);
+  padding: 40px 38px 34px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.login-logo-badge {
+  width: 130px;
+  margin-bottom: 4px;
+}
+
+.login-logo-badge img { width: 100%; display: block; }
+
+.login-subtitle {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  font-size: 0.9rem;
+  color: var(--blue);
+  margin-bottom: 26px;
+}
+
+.login-label {
+  align-self: flex-start;
+  font-family: var(--font-body);
+  font-size: 0.86rem;
+  color: var(--navy);
+  margin: 10px 0 6px;
+}
+
+.login-input-wrap {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  padding: 11px 18px;
+  background: #fff;
+}
+
+.login-input-wrap select,
+.login-input-wrap input {
+  border: none;
+  outline: none;
+  background: transparent;
+  flex: 1;
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  color: var(--navy);
+  padding: 0;
+}
+
+.login-input-wrap:focus-within { border-color: var(--blue); }
+.login-input-icon { flex-shrink: 0; font-size: 0.95rem; opacity: 0.75; }
+.login-eye { background: none; border: none; cursor: pointer; font-size: 0.95rem; opacity: 0.6; padding: 0; }
+.login-eye:hover { opacity: 1; }
+
+.login-error {
+  width: 100%;
+  color: var(--red-flag);
+  font-size: 0.82rem;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.login-submit {
+  margin-top: 26px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: var(--blue);
+  color: #fff;
+  font-size: 1.3rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.18);
+  transition: transform 0.12s ease, background 0.15s ease;
+}
+
+.login-submit:hover { background: var(--blue-deep); transform: translateY(-1px); }
+.login-submit:active { transform: scale(0.96); }
+
+.login-bottom {
+  position: relative;
+  padding: 26px 20px 32px;
+  text-align: center;
+  overflow: hidden;
+}
+
+.login-tagline {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: var(--navy);
+  position: relative;
+  z-index: 2;
+}
+
+.login-tagline .hl-blue { color: var(--blue); }
+
+.login-corner-dots {
+  position: absolute;
+  bottom: -20px;
+  width: 220px;
+  height: 120px;
+  background-image: radial-gradient(var(--blue) 1.5px, transparent 1.5px);
+  background-size: 16px 16px;
+  opacity: 0.18;
+}
+
+.login-corner-dots-left { left: -30px; }
+.login-corner-dots-right { right: -30px; }
+
+@media (max-width: 900px) {
+  .login-hero { min-height: 260px; }
+  .login-card { padding: 32px 24px 28px; }
+}

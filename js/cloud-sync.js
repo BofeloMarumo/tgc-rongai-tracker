@@ -107,6 +107,15 @@ async function loadFromSupabase() {
     supabaseGetAll("settings"),
   ]);
 
+  // Fetched separately: if the `users` table doesn't exist yet (migration
+  // 003 not run), that shouldn't prevent loading everything else.
+  let userRows = [];
+  try {
+    userRows = await supabaseGetAll("users");
+  } catch (e) {
+    console.warn("Could not load users from Supabase — have you run supabase/migrations/003_users.sql yet?", e);
+  }
+
   const settingsRow = settingsRows.find((r) => r.key === "app_settings");
   const settings = settingsRow && settingsRow.value ? settingsRow.value : {
     noteWarnDays: 3, noteDangerDays: 7, weeklyHotspotTarget: 10, previousSoulsWonByYear: {}, colorPreset: "blue_purple", logoDataUrl: null, archiveReasonCategories: ["Relocated", "Assigned to Another Branch/Pastor", "Lost Contact", "Personal Request", "Other"],
@@ -150,6 +159,9 @@ async function loadFromSupabase() {
       archivedAt: c.archived_at || null,
     })),
     settings,
+    users: userRows.map((u) => ({
+      id: u.id, userType: u.user_type, name: u.name, passwordHash: u.password_hash, createdAt: u.created_at,
+    })),
   };
 }
 
@@ -193,6 +205,13 @@ function mapDataToRows(data) {
       archived_at: c.archivedAt || null,
     })),
     settingsRows: [{ key: "app_settings", value: data.settings }],
+    userRows: (data.users || []).map((u) => ({
+      id: u.id,
+      user_type: u.userType,
+      name: u.name,
+      password_hash: u.passwordHash,
+      created_at: u.createdAt,
+    })),
   };
 }
 
@@ -201,7 +220,7 @@ function mapDataToRows(data) {
 // Never erases anything else, even if it's missing from `data` — e.g.
 // because another device hasn't synced yet. ----------------
 async function saveToSupabase(data, pendingDeletes) {
-  const { memberRows, hotspotRows, soulRows, cmRows, settingsRows } = mapDataToRows(data);
+  const { memberRows, hotspotRows, soulRows, cmRows, settingsRows, userRows } = mapDataToRows(data);
 
   await Promise.all([
     supabaseUpsert("members", memberRows, "id"),
@@ -211,6 +230,15 @@ async function saveToSupabase(data, pendingDeletes) {
     supabaseUpsert("settings", settingsRows, "key"),
   ]);
 
+  // Users sync is wrapped separately: if the `users` table doesn't exist yet
+  // (migration 003 not run), that shouldn't make the rest of the sync report
+  // as failed — the campus data above is what matters most.
+  try {
+    await supabaseUpsert("users", userRows, "id");
+  } catch (e) {
+    console.warn("Users table sync failed — have you run supabase/migrations/003_users.sql yet?", e);
+  }
+
   const d = pendingDeletes || {};
   await Promise.all([
     supabaseDeleteIds("members", d.members, "id"),
@@ -218,13 +246,18 @@ async function saveToSupabase(data, pendingDeletes) {
     supabaseDeleteIds("soul_records", d.soul_records, "id"),
     supabaseDeleteIds("church_members", d.church_members, "id"),
   ]);
+  try {
+    await supabaseDeleteIds("users", d.users, "id");
+  } catch (e) {
+    console.warn("Users table delete sync failed — have you run supabase/migrations/003_users.sql yet?", e);
+  }
 }
 
 // ---------------- Explicit full replace: reserved for deliberate,
 // user-confirmed "make the cloud exactly match this" actions (Reset to
 // demo data, Import, and the manual Push button) — NOT the normal save path.
 async function replaceAllInSupabase(data) {
-  const { memberRows, hotspotRows, soulRows, cmRows, settingsRows } = mapDataToRows(data);
+  const { memberRows, hotspotRows, soulRows, cmRows, settingsRows, userRows } = mapDataToRows(data);
 
   await Promise.all([
     supabaseReplaceAll("members", memberRows, "id"),
@@ -233,4 +266,10 @@ async function replaceAllInSupabase(data) {
     supabaseReplaceAll("church_members", cmRows, "id"),
     supabaseReplaceAll("settings", settingsRows, "key"),
   ]);
+
+  try {
+    await supabaseReplaceAll("users", userRows, "id");
+  } catch (e) {
+    console.warn("Users table sync failed — have you run supabase/migrations/003_users.sql yet?", e);
+  }
 }

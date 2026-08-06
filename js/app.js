@@ -8,8 +8,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   applyColorPreset(Store.data.settings.colorPreset || "blue_purple");
   applyBranding(Store.data.settings);
   showBootLoading(false);
-  renderAll();
-  wireTabs();
+
+  if (sessionIsValid()) {
+    showApp();
+  } else {
+    clearSession();
+    showLoginScreen();
+  }
   wireKeyboardAccessibility();
 });
 
@@ -592,6 +597,116 @@ function saveWeeklyTarget() {
   Store.save();
   renderReportsTab();
   alert("Weekly target updated.");
+}
+
+// ---------------- Users (Super Admin only) ----------------
+function openAddUserModal() {
+  document.getElementById("modalRoot").innerHTML = `
+    <div class="modal">
+      <h3>Add User</h3>
+      <div class="sub">They'll be able to log in immediately with these credentials.</div>
+      <div class="form-grid">
+        <div class="full">
+          <label>User type</label>
+          <select id="newUserType">
+            <option value="Super Admin">Super Admin</option>
+            <option value="Branch Admin">Branch Admin</option>
+            <option value="Hotspot Leader" selected>Hotspot Leader</option>
+          </select>
+        </div>
+        <div class="full"><label>Name</label><input id="newUserName" placeholder="Full name"></div>
+        <div class="full"><label>Password</label><input type="text" id="newUserPassword" placeholder="Choose a password"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveNewUser()">Add user</button>
+      </div>
+    </div>
+  `;
+  document.getElementById("modalOverlay").classList.add("open");
+}
+
+async function saveNewUser() {
+  const userType = document.getElementById("newUserType").value;
+  const name = document.getElementById("newUserName").value.trim();
+  const password = document.getElementById("newUserPassword").value;
+  if (!name || !password) { alert("Enter a name and password."); return; }
+  if (password.length < 6) { alert("Use a password of at least 6 characters."); return; }
+  await Store.addUser(userType, name, password);
+  closeModal();
+  renderAdmin();
+}
+
+function openEditUserModal(id) {
+  const u = Store.data.users.find((x) => x.id === id);
+  if (!u) return;
+  document.getElementById("modalRoot").innerHTML = `
+    <div class="modal">
+      <h3>Edit User</h3>
+      <div class="sub">Leave the password blank to keep it unchanged.</div>
+      <div class="form-grid">
+        <div class="full">
+          <label>User type</label>
+          <select id="editUserType">
+            <option value="Super Admin" ${u.userType === "Super Admin" ? "selected" : ""}>Super Admin</option>
+            <option value="Branch Admin" ${u.userType === "Branch Admin" ? "selected" : ""}>Branch Admin</option>
+            <option value="Hotspot Leader" ${u.userType === "Hotspot Leader" ? "selected" : ""}>Hotspot Leader</option>
+          </select>
+        </div>
+        <div class="full"><label>Name</label><input id="editUserName" value="${u.name}"></div>
+        <div class="full"><label>New password (optional)</label><input type="text" id="editUserPassword" placeholder="Leave blank to keep current password"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveEditUser('${u.id}')">Save changes</button>
+      </div>
+    </div>
+  `;
+  document.getElementById("modalOverlay").classList.add("open");
+}
+
+async function saveEditUser(id) {
+  const userType = document.getElementById("editUserType").value;
+  const name = document.getElementById("editUserName").value.trim();
+  const password = document.getElementById("editUserPassword").value;
+  if (!name) { alert("Enter a name."); return; }
+  if (password && password.length < 6) { alert("Use a password of at least 6 characters, or leave it blank to keep the current one."); return; }
+  if (!confirm("Save changes to this user?")) return;
+
+  const patch = { userType, name };
+  if (password) patch.plainPassword = password;
+  await Store.updateUser(id, patch);
+
+  // If editing yourself, keep the session's displayed name/type in sync.
+  const me = currentUser();
+  if (me && me.id === id) setSession({ id, name, userType });
+
+  closeModal();
+  renderAdmin();
+  const loggedInAsEl = document.getElementById("loggedInAs");
+  if (loggedInAsEl && me && me.id === id) loggedInAsEl.textContent = `${name} · ${userType}`;
+}
+
+function removeUserRow(id) {
+  const u = Store.data.users.find((x) => x.id === id);
+  if (!u) return;
+  const me = currentUser();
+  if (me && me.id === id) {
+    if (!confirm("This is the account you're currently logged in as. Delete it anyway? You'll be logged out immediately.")) return;
+  } else if (!confirm(`Delete the user "${u.name}"? They won't be able to log in anymore.`)) {
+    return;
+  }
+  try {
+    Store.removeUser(id);
+  } catch (e) {
+    alert(e.message);
+    return;
+  }
+  if (me && me.id === id) {
+    logout();
+    return;
+  }
+  renderAdmin();
 }
 
 function addArchiveCategoryRow() {

@@ -90,6 +90,18 @@ CREATE TABLE IF NOT EXISTS church_member_disciples (
   PRIMARY KEY (church_member_id, disciple_id)
 );
 
+-- Users: app-level login gate (Super Admin / Branch Admin / Hotspot Leader).
+-- Only Super Admins can access Members & Settings. Passwords are stored as
+-- a SHA-256 hash, never plaintext — see docs for the honest security
+-- limitations of a client-side-only login on top of an open anon key.
+CREATE TABLE IF NOT EXISTS users (
+  id            TEXT PRIMARY KEY,
+  user_type     TEXT NOT NULL CHECK (user_type IN ('Super Admin','Branch Admin','Hotspot Leader')),
+  name          TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  created_at    TEXT NOT NULL
+);
+
 -- Follow-Up Radar thresholds: days since the last note was logged.
 CREATE TABLE IF NOT EXISTS settings (
   key   TEXT PRIMARY KEY,

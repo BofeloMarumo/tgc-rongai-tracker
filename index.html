@@ -12,7 +12,58 @@
 <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-<div class="app-shell">
+
+<div id="loginScreen" class="login-screen">
+  <div class="login-top">
+    <div class="login-hero">
+      <div class="login-hero-watermark">GO</div>
+      <div class="login-hero-dots login-hero-dots-1"></div>
+      <div class="login-hero-dots login-hero-dots-2"></div>
+    </div>
+    <div class="login-panel">
+      <div class="login-card">
+        <div class="login-logo-badge">
+          <img src="assets/logo-default.png" alt="Church logo" id="loginLogoImg">
+        </div>
+        <div class="login-subtitle">CAMPUS TRACKER</div>
+
+        <label class="login-label">User Type:</label>
+        <div class="login-input-wrap">
+          <span class="login-input-icon">👤</span>
+          <select id="loginUserType">
+            <option value="Super Admin">Super Admin</option>
+            <option value="Branch Admin">Branch Admin</option>
+            <option value="Hotspot Leader">Hotspot Leader</option>
+          </select>
+        </div>
+
+        <label class="login-label">Name:</label>
+        <div class="login-input-wrap">
+          <span class="login-input-icon">👤</span>
+          <input type="text" id="loginName" autocomplete="username" placeholder="">
+        </div>
+
+        <label class="login-label">Password:</label>
+        <div class="login-input-wrap">
+          <span class="login-input-icon">🔒</span>
+          <input type="password" id="loginPassword" autocomplete="current-password" placeholder="" onkeydown="if(event.key==='Enter') attemptLogin()">
+          <button type="button" class="login-eye" onclick="toggleLoginPasswordVisibility()" title="Show/hide password">👁</button>
+        </div>
+
+        <div id="loginError" class="login-error" style="display:none;"></div>
+
+        <button class="login-submit" onclick="attemptLogin()" title="Log in">→</button>
+      </div>
+    </div>
+  </div>
+  <div class="login-bottom">
+    <div class="login-tagline">Where it's <span class="hl-blue">Spiritual</span> and <span class="hl-blue">Fun</span></div>
+    <div class="login-corner-dots login-corner-dots-left"></div>
+    <div class="login-corner-dots login-corner-dots-right"></div>
+  </div>
+</div>
+
+<div class="app-shell" id="appShell" style="display:none;">
 
   <header class="topbar">
     <div class="brand-row">
@@ -27,6 +78,8 @@
       </div>
       <div style="display:flex;align-items:center;gap:10px;">
         <button id="undoBtn" class="btn btn-yellow btn-sm" onclick="performUndo()" style="display:none;" title="Revert the last edit or delete">↺ Undo last change</button>
+        <span id="loggedInAs" class="tagline" style="display:none;"></span>
+        <button id="logoutBtn" class="btn btn-ghost btn-sm" onclick="logout()" style="display:none;background:rgba(255,255,255,0.12);color:#fff;border-color:rgba(255,255,255,0.4);">Log out</button>
         <div class="tagline">Reach. Follow up. Plug in.</div>
       </div>
     </div>
@@ -67,6 +120,7 @@
 <script src="js/render.js"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/archive.js"></script>
+<script src="js/auth.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

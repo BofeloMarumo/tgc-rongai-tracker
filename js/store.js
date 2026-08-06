@@ -87,6 +87,13 @@ CREATE TABLE IF NOT EXISTS settings (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS users (
+  id            TEXT PRIMARY KEY,
+  user_type     TEXT NOT NULL,
+  name          TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  created_at    TEXT NOT NULL
+);
 `;
 
 const PLUG_STAGES = ["Guest", "Attends Hotspot", "Attends Get Set", "Service Team"];
@@ -157,6 +164,17 @@ function formatNiceDate(isoDateOnly) {
   }
 }
 
+// Passwords are hashed (SHA-256) before ever being stored, so they're not
+// sitting around in plaintext. This is a courtesy against casual exposure,
+// NOT real security — see docs/DATABASE.md and supabase/CLOUD_SYNC.md for
+// why a client-side login on top of an open Supabase anon key can't fully
+// protect against someone with API access, only against the app's own UI.
+async function hashPassword(plain) {
+  const bytes = new TextEncoder().encode(plain);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 function daysBetween(isoDate) {
   if (!isoDate) return null;
   const then = new Date(isoDate + "T00:00:00Z");
@@ -212,7 +230,7 @@ const Store = {
     // normal incremental save() (which only ever adds/updates, never removes
     // rows based on absence).
     this._persistLocally();
-    this._pendingDeletes = { members: [], hotspots: [], soul_records: [], church_members: [] };
+    this._pendingDeletes = { members: [], hotspots: [], soul_records: [], church_members: [], users: [] };
     if (this._syncDebounceTimer) { clearTimeout(this._syncDebounceTimer); this._syncDebounceTimer = null; }
     this.cloudStatus = "pending";
     replaceAllInSupabase(this.data)
@@ -225,7 +243,7 @@ const Store = {
   // the next cloud sync deletes exactly those rows — never inferred from
   // "missing from the current payload," which is what keeps ordinary saves
   // from ever erasing data that only exists remotely so far.
-  _pendingDeletes: { members: [], hotspots: [], soul_records: [], church_members: [] },
+  _pendingDeletes: { members: [], hotspots: [], soul_records: [], church_members: [], users: [] },
   _queueDelete(table, id) {
     if (!this._pendingDeletes[table]) this._pendingDeletes[table] = [];
     this._pendingDeletes[table].push(id);
@@ -244,7 +262,7 @@ const Store = {
 
     try {
       this.data = await loadFromSupabase();
-      this._migrate();
+      await this._migrate();
       this._persistLocally(); // cache a local SQLite copy too, without re-pushing what we just pulled
       this.cloudStatus = "connected";
       return this.data;
@@ -258,7 +276,7 @@ const Store = {
       const db = new SQL.Database(base64ToUint8(cached));
       this.data = this._hydrateFromDb(db);
       db.close();
-      this._migrate();
+      await this._migrate();
       return this.data;
     }
 
@@ -270,13 +288,13 @@ const Store = {
       const db = new SQL.Database(buf);
       this.data = this._hydrateFromDb(db);
       db.close();
-      this._migrate();
+      await this._migrate();
       this._persistLocally(); // cache a working copy for this browser
       return this.data;
     } catch (e) {
       console.warn("Could not load data/tracker.db, falling back to built-in demo data.", e);
       this.data = this._seed();
-      this._migrate();
+      await this._migrate();
       this._persistLocally();
       return this.data;
     }
@@ -357,7 +375,14 @@ const Store = {
       }
     });
 
-    return { members, hotspots, soulRecords, churchMembers, settings };
+    let users = [];
+    try {
+      users = all("SELECT id, user_type, name, password_hash, created_at FROM users").map((u) => ({
+        id: u.id, userType: u.user_type, name: u.name, passwordHash: u.password_hash, createdAt: u.created_at,
+      }));
+    } catch (e) { /* users table may not exist yet on an older cached db; _migrate() seeds the default account */ }
+
+    return { members, hotspots, soulRecords, churchMembers, settings, users };
   },
 
   // Rebuild a fresh SQLite database from the in-memory JS model.
@@ -402,6 +427,13 @@ const Store = {
       db.run("INSERT INTO settings (key, value) VALUES (?, ?)", [k, val]);
     });
 
+    (d.users || []).forEach((u) => {
+      db.run(
+        "INSERT INTO users (id, user_type, name, password_hash, created_at) VALUES (?, ?, ?, ?, ?)",
+        [u.id, u.userType, u.name, u.passwordHash, u.createdAt]
+      );
+    });
+
     const binary = db.export();
     db.close();
     return binary;
@@ -444,7 +476,7 @@ const Store = {
   // wait out the timer.
   async _flushToCloud() {
     const deletes = this._pendingDeletes;
-    this._pendingDeletes = { members: [], hotspots: [], soul_records: [], church_members: [] };
+    this._pendingDeletes = { members: [], hotspots: [], soul_records: [], church_members: [], users: [] };
     try {
       await saveToSupabase(this.data, deletes);
       this.cloudStatus = "connected";
@@ -466,15 +498,15 @@ const Store = {
     // device" action — uses the explicit full-replace path, not the safe
     // incremental one, since the whole point is to force an exact match.
     await replaceAllInSupabase(this.data);
-    this._pendingDeletes = { members: [], hotspots: [], soul_records: [], church_members: [] };
+    this._pendingDeletes = { members: [], hotspots: [], soul_records: [], church_members: [], users: [] };
     this.cloudStatus = "connected";
   },
 
   async pullFromCloud() {
     if (this._syncDebounceTimer) { clearTimeout(this._syncDebounceTimer); this._syncDebounceTimer = null; }
-    this._pendingDeletes = { members: [], hotspots: [], soul_records: [], church_members: [] };
+    this._pendingDeletes = { members: [], hotspots: [], soul_records: [], church_members: [], users: [] };
     this.data = await loadFromSupabase();
-    this._migrate();
+    await this._migrate();
     this._persistLocally();
     this.cloudStatus = "connected";
   },
@@ -491,7 +523,7 @@ const Store = {
   // debounced incremental one.
   async _fullReplaceSave() {
     this._persistLocally();
-    this._pendingDeletes = { members: [], hotspots: [], soul_records: [], church_members: [] };
+    this._pendingDeletes = { members: [], hotspots: [], soul_records: [], church_members: [], users: [] };
     if (this._syncDebounceTimer) { clearTimeout(this._syncDebounceTimer); this._syncDebounceTimer = null; }
     try {
       await replaceAllInSupabase(this.data);
@@ -508,16 +540,17 @@ const Store = {
     if (this.data) this._snapshot();
     this.data = this._hydrateFromDb(db);
     db.close();
-    this._migrate();
+    await this._migrate();
     await this._fullReplaceSave();
   },
 
-  _migrate() {
+  async _migrate() {
     this.data.members = this.data.members || [];
     this.data.hotspots = this.data.hotspots || [];
     this.data.soulRecords = this.data.soulRecords || [];
     this.data.churchMembers = this.data.churchMembers || [];
     this.data.settings = this.data.settings || {};
+    this.data.users = this.data.users || [];
 
     // Plug-In Stage rename: "New Soul" -> "Guest" (Status of Winning's own
     // "New Soul" option is untouched — these are two different fields that
@@ -559,6 +592,20 @@ const Store = {
       if (c.archiveReasonText == null) c.archiveReasonText = "";
       if (c.archivedAt === undefined) c.archivedAt = null;
     });
+
+    // Bootstrap: if there are no users at all (fresh install, a project
+    // that hasn't run the users migration, or — worst case — an empty
+    // users table after some other incident), seed the one Super Admin
+    // account so there's always a way in.
+    if (this.data.users.length === 0) {
+      this.data.users.push({
+        id: uid("user"),
+        userType: "Super Admin",
+        name: "Marumo",
+        passwordHash: await hashPassword("tgcrongai2026"),
+        createdAt: todayISO(),
+      });
+    }
   },
 
   _seed() {
@@ -894,6 +941,65 @@ const Store = {
   removeArchiveReasonCategory(name) {
     this.data.settings.archiveReasonCategories = this.data.settings.archiveReasonCategories.filter((c) => c !== name);
     this.save();
+  },
+
+  // ---------- Users (login / roles) ----------
+  // Only Super Admins can reach Members & Settings, where these live.
+  userName(id) {
+    const u = this.data.users.find((x) => x.id === id);
+    return u ? u.name : "—";
+  },
+
+  async addUser(userType, name, plainPassword) {
+    this._snapshot();
+    const u = {
+      id: uid("user"),
+      userType,
+      name: name.trim(),
+      passwordHash: await hashPassword(plainPassword),
+      createdAt: todayISO(),
+    };
+    this.data.users.push(u);
+    this.save();
+    return u;
+  },
+
+  // patch may include { userType, name } and optionally { plainPassword } to change the password.
+  async updateUser(id, patch) {
+    const u = this.data.users.find((x) => x.id === id);
+    if (!u) return null;
+    this._snapshot();
+    if (patch.userType) u.userType = patch.userType;
+    if (patch.name) u.name = patch.name.trim();
+    if (patch.plainPassword) u.passwordHash = await hashPassword(patch.plainPassword);
+    this.save();
+    return u;
+  },
+
+  removeUser(id) {
+    const remaining = this.data.users.filter((u) => u.id !== id);
+    const stillHasSuperAdmin = remaining.some((u) => u.userType === "Super Admin");
+    if (!stillHasSuperAdmin) {
+      throw new Error("Can't remove the last Super Admin — at least one is required so the tracker always has an admin.");
+    }
+    this._snapshot();
+    this.data.users = remaining;
+    this._queueDelete("users", id);
+    this.save();
+  },
+
+  // Returns the matching user object on success, or null on failure.
+  // Never throws — a wrong type/name/password is just a failed login, not
+  // an error. The selected User Type must match the account's actual type,
+  // not just the name/password — matches the login form's design intent.
+  async verifyLogin(userType, name, plainPassword) {
+    const hash = await hashPassword(plainPassword);
+    const match = this.data.users.find((u) =>
+      u.userType === userType &&
+      u.name.toLowerCase() === name.trim().toLowerCase() &&
+      u.passwordHash === hash
+    );
+    return match || null;
   },
 
   // Last Physical Engagement: the more recent of church/hotspot attendance,
@@ -1248,7 +1354,7 @@ const Store = {
     const parsed = JSON.parse(json);
     if (this.data) this._snapshot();
     this.data = parsed;
-    this._migrate();
+    await this._migrate();
     await this._fullReplaceSave();
   },
 

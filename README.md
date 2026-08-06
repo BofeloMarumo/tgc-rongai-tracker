@@ -12,6 +12,7 @@ A soul winning & "Plug In" tracker built for **The Go Church, Rongai Campus** �
 - **Cloud Sync (Supabase)** — data syncs to a Supabase project so changes on one device show up on others. See [`supabase/CLOUD_SYNC.md`](supabase/CLOUD_SYNC.md) for setup and **please read the security note there** before using this with real outreach data.
 - **Branding** — swap in a different church's logo (with an auto-generated favicon) and pick from four color-scheme presets, all synced across devices from Members & Settings.
 - **Archive** — move a soul or church member off the active dashboards (relocated, handed to another branch, lost contact, etc.) without deleting anything. Its own tab tracks archived people plus two time-series reports, and everything can be unarchived any time.
+- **Login & roles** — Super Admin / Branch Admin / Hotspot Leader accounts, with Members & Settings restricted to Super Admins. Managed entirely from within the app (Members & Settings → Users). Read the security note in [`supabase/CLOUD_SYNC.md`](supabase/CLOUD_SYNC.md) — it's a UI-level access gate, not a substitute for real backend security.
 - **Soul Winning Records** — log who was won, by whom, when, their status, hotspot, follow-up member, and their **Plug-In Stage** (New Soul → Attends Hotspot → Attends Get Set → Service Team).
 - **Auto-promotion** — the moment someone's Plug-In Stage hits *Service Team*, they're automatically moved into the **Church Member Report** and off the Radar.
 - **Church Member Report** — address, hotspot, hotspot leader/discipler, notes, and a disciples checklist for anyone leading a hotspot.
@@ -70,6 +71,7 @@ tgc-tracker/
 │   ├── render.js                    # DOM rendering per view
 │   ├── dashboard.js                    # Dashboard tab: built-in + custom reports
 │   ├── archive.js                         # Archive tab: archived souls/members + reports
+│   ├── auth.js                               # Login screen, sessions, role-based access
 │   └── app.js                                # tabs, modals, form handling
 ├── assets/                     # default logo + generated favicons
 ├── supabase/                # Postgres schema + cloud sync setup guide
